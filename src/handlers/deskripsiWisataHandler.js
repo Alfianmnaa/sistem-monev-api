@@ -1,9 +1,9 @@
 const pool = require("../config/db");
 const { deskripsiWisataSchema } = require("../handlers/schema");
-const { Storage } = require('@google-cloud/storage');
-const multer = require('multer');
-const path = require('path');
-require('dotenv').config();
+const { Storage } = require("@google-cloud/storage");
+const multer = require("multer");
+const path = require("path");
+require("dotenv").config();
 
 // Setup GCP Storage
 const storage = new Storage({
@@ -13,12 +13,12 @@ const bucket = storage.bucket(process.env.BUCKET_NAME);
 
 // File size and type validation for Multer
 const fileFilter = (req, file, cb) => {
-  if (!file.mimetype.startsWith('image/')) {
-    return cb(new Error('Hanya file gambar yang diperbolehkan!'), false);
+  if (!file.mimetype.startsWith("image/")) {
+    return cb(new Error("Hanya file gambar yang diperbolehkan!"), false);
   }
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
   if (!allowedTypes.includes(file.mimetype)) {
-    return cb(new Error('Hanya format JPG, PNG, dan WebP yang diperbolehkan!'), false);
+    return cb(new Error("Hanya format JPG, PNG, dan WebP yang diperbolehkan!"), false);
   }
   cb(null, true);
 };
@@ -57,10 +57,7 @@ const handleUploadErrors = (err, req, res, next) => {
 // Fungsi upload gambar ke GCS
 const uploadImageToGCS = async (file) => {
   try {
-    const fileName = `wisata/${Date.now()}-${file.originalname.replace(
-      /\s+/g,
-      "-"
-    )}`;
+    const fileName = `wisata/${Date.now()}-${file.originalname.replace(/\s+/g, "-")}`;
     const blob = bucket.file(fileName);
 
     const blobStream = blob.createWriteStream({
@@ -107,11 +104,7 @@ const deleteImageFromGCS = async (publicUrl) => {
 };
 
 // Helper function to handle arrays of entities with their images
-const processEntityWithImages = async (
-  entities = [],
-  files = [],
-  existingEntities = []
-) => {
+const processEntityWithImages = async (entities = [], files = [], existingEntities = []) => {
   const results = [];
 
   for (let i = 0; i < entities.length; i++) {
@@ -132,9 +125,7 @@ const processEntityWithImages = async (
 
       // Upload file baru
       if (entityFiles.length > 0) {
-        const imageUrls = await Promise.all(
-          entityFiles.map((file) => uploadImageToGCS(file))
-        );
+        const imageUrls = await Promise.all(entityFiles.map((file) => uploadImageToGCS(file)));
         entity.gambar = imageUrls;
       } else if (!entity.gambar && existingEntities?.[i]?.gambar) {
         // Gunakan gambar lama
@@ -170,10 +161,7 @@ const addDeskripsiWisata = async (req, res) => {
 
     let data;
     try {
-      data =
-        typeof req.body.data === "string"
-          ? JSON.parse(req.body.data)
-          : req.body.data;
+      data = typeof req.body.data === "string" ? JSON.parse(req.body.data) : req.body.data;
     } catch (err) {
       return res.status(400).json({
         status: "fail",
@@ -181,13 +169,7 @@ const addDeskripsiWisata = async (req, res) => {
       });
     }
 
-    const {
-      kd_desa,
-      atraksi = [],
-      penginapan = [],
-      paket_wisata = [],
-      suvenir = [],
-    } = data;
+    const { kd_desa, atraksi = [], penginapan = [], paket_wisata = [], suvenir = [] } = data;
 
     const { error } = deskripsiWisataSchema.validate({
       atraksi,
@@ -209,22 +191,10 @@ const addDeskripsiWisata = async (req, res) => {
       suvenir: req.files?.suvenir || [],
     };
 
-    const atraksiWithImages = await processEntityWithImages(
-      atraksi,
-      files.atraksi
-    );
-    const penginapanWithImages = await processEntityWithImages(
-      penginapan,
-      files.penginapan
-    );
-    const paketWisataWithImages = await processEntityWithImages(
-      paket_wisata,
-      files.paket_wisata
-    );
-    const suvenirWithImages = await processEntityWithImages(
-      suvenir,
-      files.suvenir
-    );
+    const atraksiWithImages = await processEntityWithImages(atraksi, files.atraksi);
+    const penginapanWithImages = await processEntityWithImages(penginapan, files.penginapan);
+    const paketWisataWithImages = await processEntityWithImages(paket_wisata, files.paket_wisata);
+    const suvenirWithImages = await processEntityWithImages(suvenir, files.suvenir);
 
     const insertQuery = `
       INSERT INTO deskripsi_wisata (
@@ -233,13 +203,7 @@ const addDeskripsiWisata = async (req, res) => {
       RETURNING kd_desa
     `;
 
-    const result = await client.query(insertQuery, [
-      kd_desa,
-      JSON.stringify(atraksiWithImages),
-      JSON.stringify(penginapanWithImages),
-      JSON.stringify(paketWisataWithImages),
-      JSON.stringify(suvenirWithImages),
-    ]);
+    const result = await client.query(insertQuery, [kd_desa, JSON.stringify(atraksiWithImages), JSON.stringify(penginapanWithImages), JSON.stringify(paketWisataWithImages), JSON.stringify(suvenirWithImages)]);
 
     return res.status(201).json({
       status: "success",
@@ -253,14 +217,11 @@ const addDeskripsiWisata = async (req, res) => {
       // PostgreSQL error code untuk duplicate key
       return res.status(400).json({
         status: "fail",
-        message:
-          "Deskripsi wisata untuk desa ini sudah ada. Gunakan endpoint /update",
+        message: "Deskripsi wisata untuk desa ini sudah ada. Gunakan endpoint /update",
       });
     }
     console.error("Error adding deskripsi wisata:", err.message);
-    return res
-      .status(500)
-      .json({ status: "error", message: "Internal server error" });
+    return res.status(500).json({ status: "error", message: "Internal server error" });
   } finally {
     if (client) client.release();
   }
@@ -285,9 +246,7 @@ const getAllDeskripsiWisata = async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 100);
     const offset = (page - 1) * limit;
 
-    const countResult = await client.query(
-      "SELECT COUNT(*) FROM deskripsi_wisata"
-    );
+    const countResult = await client.query("SELECT COUNT(*) FROM deskripsi_wisata");
     const totalCount = parseInt(countResult.rows[0].count);
 
     const paginatedQuery = `${query} LIMIT $1 OFFSET $2`;
@@ -305,9 +264,7 @@ const getAllDeskripsiWisata = async (req, res) => {
     });
   } catch (err) {
     console.error("Error fetching all deskripsi wisata:", err);
-    return res
-      .status(500)
-      .json({ status: "error", message: "Internal server error" });
+    return res.status(500).json({ status: "error", message: "Internal server error" });
   } finally {
     if (client) client.release();
   }
@@ -333,17 +290,48 @@ const getDeskripsiWisataByKdDesa = async (req, res) => {
 
     const result = await client.query(query, [kd_desa]);
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ status: "fail", message: "Deskripsi wisata tidak ditemukan" });
+      return res.status(404).json({ status: "fail", message: "Deskripsi wisata tidak ditemukan" });
     }
 
     return res.status(200).json({ status: "success", data: result.rows[0] });
   } catch (err) {
     console.error("Error fetching deskripsi wisata by kd_desa:", err);
-    return res
-      .status(500)
-      .json({ status: "error", message: "Internal server error" });
+    return res.status(500).json({ status: "error", message: "Internal server error" });
+  } finally {
+    if (client) client.release();
+  }
+};
+
+const getRandomAtraksiWisata = async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+
+    const query = `
+      SELECT dw.kd_desa, d.nama_popular, d.kabupaten, d.slug, dw.atraksi
+      FROM deskripsi_wisata dw
+      JOIN desa_wisata d ON dw.kd_desa = d.kd_desa
+      WHERE 
+        dw.atraksi IS NOT NULL AND 
+        jsonb_typeof(dw.atraksi) = 'array' AND 
+        EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(dw.atraksi) AS elem
+          WHERE elem->>'gambar' IS NOT NULL AND TRIM(BOTH FROM (elem->>'gambar')) <> ''
+        )
+      ORDER BY RANDOM()
+      LIMIT 10
+    `;
+
+    const result = await client.query(query);
+
+    return res.status(200).json({
+      status: "success",
+      data: result.rows,
+    });
+  } catch (err) {
+    console.error("Error fetching random atraksi wisata:", err);
+    return res.status(500).json({ status: "error", message: "Internal server error" });
   } finally {
     if (client) client.release();
   }
@@ -366,10 +354,7 @@ const updateDeskripsiWisata = async (req, res) => {
 
     let data;
     try {
-      data =
-        typeof req.body.data === "string"
-          ? JSON.parse(req.body.data)
-          : req.body.data;
+      data = typeof req.body.data === "string" ? JSON.parse(req.body.data) : req.body.data;
     } catch (err) {
       return res.status(400).json({
         status: "fail",
@@ -377,15 +362,7 @@ const updateDeskripsiWisata = async (req, res) => {
       });
     }
 
-    const {
-      penjelasan_umum,
-      fasilitas,
-      dokumentasi_desa,
-      atraksi = [],
-      penginapan = [],
-      paket_wisata = [],
-      suvenir = [],
-    } = data;
+    const { penjelasan_umum, fasilitas, dokumentasi_desa, atraksi = [], penginapan = [], paket_wisata = [], suvenir = [] } = data;
 
     const { error } = deskripsiWisataSchema.validate({
       atraksi,
@@ -394,17 +371,12 @@ const updateDeskripsiWisata = async (req, res) => {
       suvenir,
     });
     if (error) {
-      return res
-        .status(400)
-        .json({ status: "fail", message: error.details[0].message });
+      return res.status(400).json({ status: "fail", message: error.details[0].message });
     }
 
     await client.query("BEGIN");
 
-    const checkExisting = await client.query(
-      "SELECT * FROM deskripsi_wisata WHERE kd_desa = $1",
-      [kd_desa]
-    );
+    const checkExisting = await client.query("SELECT * FROM deskripsi_wisata WHERE kd_desa = $1", [kd_desa]);
 
     if (checkExisting.rows.length === 0) {
       await client.query("ROLLBACK");
@@ -423,26 +395,10 @@ const updateDeskripsiWisata = async (req, res) => {
       suvenir: req.files?.suvenir || [],
     };
 
-    const atraksiWithImages = await processEntityWithImages(
-      atraksi,
-      files.atraksi,
-      existingData.atraksi
-    );
-    const penginapanWithImages = await processEntityWithImages(
-      penginapan,
-      files.penginapan,
-      existingData.penginapan
-    );
-    const paketWisataWithImages = await processEntityWithImages(
-      paket_wisata,
-      files.paket_wisata,
-      existingData.paket_wisata
-    );
-    const suvenirWithImages = await processEntityWithImages(
-      suvenir,
-      files.suvenir,
-      existingData.suvenir
-    );
+    const atraksiWithImages = await processEntityWithImages(atraksi, files.atraksi, existingData.atraksi);
+    const penginapanWithImages = await processEntityWithImages(penginapan, files.penginapan, existingData.penginapan);
+    const paketWisataWithImages = await processEntityWithImages(paket_wisata, files.paket_wisata, existingData.paket_wisata);
+    const suvenirWithImages = await processEntityWithImages(suvenir, files.suvenir, existingData.suvenir);
 
     const updateQuery = `
       UPDATE deskripsi_wisata SET
@@ -476,9 +432,7 @@ const updateDeskripsiWisata = async (req, res) => {
   } catch (err) {
     if (client) await client.query("ROLLBACK").catch(console.error);
     console.error("Error updating deskripsi wisata:", err);
-    return res
-      .status(500)
-      .json({ status: "error", message: "Internal server error" });
+    return res.status(500).json({ status: "error", message: "Internal server error" });
   } finally {
     if (client) client.release();
   }
@@ -494,10 +448,7 @@ const deleteDeskripsiWisata = async (req, res) => {
     await client.query("BEGIN");
 
     // Ambil data sebelum dihapus untuk hapus file dari GCS
-    const result = await client.query(
-      "SELECT * FROM deskripsi_wisata WHERE kd_desa = $1",
-      [kd_desa]
-    );
+    const result = await client.query("SELECT * FROM deskripsi_wisata WHERE kd_desa = $1", [kd_desa]);
 
     if (result.rows.length === 0) {
       await client.query("ROLLBACK");
@@ -510,12 +461,7 @@ const deleteDeskripsiWisata = async (req, res) => {
     const existingData = result.rows[0];
 
     // Hapus semua gambar dari GCS
-    const entitiesToDelete = [
-      existingData.atraksi,
-      existingData.penginapan,
-      existingData.paket_wisata,
-      existingData.suvenir,
-    ];
+    const entitiesToDelete = [existingData.atraksi, existingData.penginapan, existingData.paket_wisata, existingData.suvenir];
 
     for (const entityGroup of entitiesToDelete) {
       if (entityGroup && Array.isArray(entityGroup)) {
@@ -532,9 +478,7 @@ const deleteDeskripsiWisata = async (req, res) => {
     }
 
     // Setelah hapus gambar, baru hapus dari DB
-    await client.query("DELETE FROM deskripsi_wisata WHERE kd_desa = $1", [
-      kd_desa,
-    ]);
+    await client.query("DELETE FROM deskripsi_wisata WHERE kd_desa = $1", [kd_desa]);
     await client.query("COMMIT");
 
     return res.status(200).json({
@@ -546,9 +490,7 @@ const deleteDeskripsiWisata = async (req, res) => {
       await client.query("ROLLBACK").catch(console.error);
     }
     console.error("Error deleting deskripsi wisata:", err.message);
-    return res
-      .status(500)
-      .json({ status: "error", message: "Internal server error" });
+    return res.status(500).json({ status: "error", message: "Internal server error" });
   } finally {
     if (client) {
       client.release();
@@ -598,10 +540,7 @@ const patchDeskripsiWisata = async (req, res) => {
 
     let data;
     try {
-      data =
-        typeof req.body.data === "string"
-          ? JSON.parse(req.body.data)
-          : req.body.data;
+      data = typeof req.body.data === "string" ? JSON.parse(req.body.data) : req.body.data;
     } catch (err) {
       return res.status(400).json({
         status: "fail",
@@ -609,20 +548,12 @@ const patchDeskripsiWisata = async (req, res) => {
       });
     }
 
-    const {
-      atraksi = [],
-      penginapan = [],
-      paket_wisata = [],
-      suvenir = [],
-    } = data;
+    const { atraksi = [], penginapan = [], paket_wisata = [], suvenir = [] } = data;
 
     await client.query("BEGIN");
 
     // Ambil data yang sudah ada
-    const existingData = await client.query(
-      "SELECT * FROM deskripsi_wisata WHERE kd_desa = $1",
-      [kd_desa]
-    );
+    const existingData = await client.query("SELECT * FROM deskripsi_wisata WHERE kd_desa = $1", [kd_desa]);
 
     if (existingData.rows.length === 0) {
       await client.query("ROLLBACK");
@@ -643,15 +574,9 @@ const patchDeskripsiWisata = async (req, res) => {
     // Gabungkan data baru dengan yang sudah ada
     const updatedAtraksi = [...parseArrayData(currentData.atraksi), ...atraksi];
 
-    const updatedPenginapan = [
-      ...parseArrayData(currentData.penginapan),
-      ...penginapan,
-    ];
+    const updatedPenginapan = [...parseArrayData(currentData.penginapan), ...penginapan];
 
-    const updatedPaketWisata = [
-      ...parseArrayData(currentData.paket_wisata),
-      ...paket_wisata,
-    ];
+    const updatedPaketWisata = [...parseArrayData(currentData.paket_wisata), ...paket_wisata];
 
     const updatedSuvenir = [...parseArrayData(currentData.suvenir), ...suvenir];
 
@@ -667,13 +592,7 @@ const patchDeskripsiWisata = async (req, res) => {
       RETURNING *
     `;
 
-    const result = await client.query(updateQuery, [
-      JSON.stringify(updatedAtraksi),
-      JSON.stringify(updatedPenginapan),
-      JSON.stringify(updatedPaketWisata),
-      JSON.stringify(updatedSuvenir),
-      kd_desa,
-    ]);
+    const result = await client.query(updateQuery, [JSON.stringify(updatedAtraksi), JSON.stringify(updatedPenginapan), JSON.stringify(updatedPaketWisata), JSON.stringify(updatedSuvenir), kd_desa]);
 
     await client.query("COMMIT");
 
@@ -726,12 +645,7 @@ const patchRemoveItemDeskripsiWisata = async (req, res) => {
       });
     }
 
-    const validEntityTypes = [
-      "atraksi",
-      "penginapan",
-      "paket_wisata",
-      "suvenir",
-    ];
+    const validEntityTypes = ["atraksi", "penginapan", "paket_wisata", "suvenir"];
     if (!validEntityTypes.includes(entity_type)) {
       return res.status(400).json({
         status: "fail",
@@ -742,10 +656,7 @@ const patchRemoveItemDeskripsiWisata = async (req, res) => {
     await client.query("BEGIN");
 
     // Ambil data yang sudah ada
-    const existingData = await client.query(
-      "SELECT * FROM deskripsi_wisata WHERE kd_desa = $1",
-      [kd_desa]
-    );
+    const existingData = await client.query("SELECT * FROM deskripsi_wisata WHERE kd_desa = $1", [kd_desa]);
 
     if (existingData.rows.length === 0) {
       await client.query("ROLLBACK");
@@ -817,10 +728,7 @@ const patchRemoveItemDeskripsiWisata = async (req, res) => {
       RETURNING *
     `;
 
-    const result = await client.query(updateQuery, [
-      JSON.stringify(currentArray),
-      kd_desa,
-    ]);
+    const result = await client.query(updateQuery, [JSON.stringify(currentArray), kd_desa]);
 
     await client.query("COMMIT");
 
@@ -855,4 +763,5 @@ module.exports = {
   uploadGambar,
   uploadImageToGCS,
   deleteImageFromGCS,
+  getRandomAtraksiWisata,
 };

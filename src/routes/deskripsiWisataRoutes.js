@@ -1,4 +1,4 @@
-const express = require('express');
+const express = require("express");
 const { authenticateToken, checkRole } = require("../middleware/authMiddleware");
 const {
   addDeskripsiWisata,
@@ -11,6 +11,7 @@ const {
   patchDeskripsiWisata,
   patchRemoveItemDeskripsiWisata,
   uploadImageToGCS,
+  getRandomAtraksiWisata,
 } = require("../handlers/deskripsiWisataHandler");
 const { checkOwnership } = require("../middleware/checkOwnership");
 const router = express.Router();
@@ -28,6 +29,8 @@ router.get("/deskripsi-wisata", getAllDeskripsiWisata);
 
 // GET deskripsi wisata by kd_desa
 router.get("/deskripsi-wisata/:kd_desa", getDeskripsiWisataByKdDesa);
+
+router.get("/atraksi-wisata", getRandomAtraksiWisata);
 
 // POST create deskripsi wisata with multiple image uploads
 router.post(
@@ -51,13 +54,7 @@ router.put(
 );
 
 // DELETE deskripsi wisata
-router.delete(
-  "/deskripsi-wisata/:kd_desa",
-  authenticateToken,
-  checkRole("pengelola"),
-  deleteDeskripsiWisata,
-  checkOwnership
-);
+router.delete("/deskripsi-wisata/:kd_desa", authenticateToken, checkRole("pengelola"), deleteDeskripsiWisata, checkOwnership);
 
 // Route
 router.patch(
@@ -72,17 +69,12 @@ router.patch(
   patchDeskripsiWisata
 );
 
-router.patch(
-  "/deskripsi-wisata/:kd_desa/remove-item",
-  patchRemoveItemDeskripsiWisata
-);
+router.patch("/deskripsi-wisata/:kd_desa/remove-item", patchRemoveItemDeskripsiWisata);
 
 router.post("/upload/gambar", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
-      return res
-        .status(400)
-        .json({ status: "fail", message: "No file uploaded" });
+      return res.status(400).json({ status: "fail", message: "No file uploaded" });
     }
 
     // Upload ke GCS

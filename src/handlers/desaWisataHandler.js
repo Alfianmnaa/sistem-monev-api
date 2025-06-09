@@ -5,16 +5,7 @@ const slugify = require("../utils/slugify");
 
 // Menambahkan desa wisata
 const addDesaWisata = async (req, res) => {
-  const {
-    provinsi,
-    kabupaten,
-    nama_desa,
-    nama_popular,
-    alamat,
-    pengelola,
-    nomor_telepon,
-    email,
-  } = req.body;
+  const { provinsi, kabupaten, nama_desa, nama_popular, alamat, pengelola, nomor_telepon, email } = req.body;
 
   const kd_desa = `DESA-${nanoid(10)}`;
 
@@ -41,10 +32,7 @@ const addDesaWisata = async (req, res) => {
     await client.query("BEGIN");
 
     // Cek apakah email terdaftar
-    const checkUser = await client.query(
-      "SELECT 1 FROM users WHERE email = $1",
-      [email]
-    );
+    const checkUser = await client.query("SELECT 1 FROM users WHERE email = $1", [email]);
     if (checkUser.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(400).json({
@@ -54,10 +42,7 @@ const addDesaWisata = async (req, res) => {
     }
 
     // Cek kode desa unik
-    const checkDesa = await client.query(
-      "SELECT 1 FROM desa_wisata WHERE kd_desa = $1",
-      [kd_desa]
-    );
+    const checkDesa = await client.query("SELECT 1 FROM desa_wisata WHERE kd_desa = $1", [kd_desa]);
     if (checkDesa.rows.length > 0) {
       await client.query("ROLLBACK");
       return res.status(409).json({
@@ -70,10 +55,7 @@ const addDesaWisata = async (req, res) => {
     let slug = baseSlug;
     let i = 1;
     while (true) {
-      const checkSlug = await client.query(
-        "SELECT 1 FROM desa_wisata WHERE slug = $1",
-        [slug]
-      );
+      const checkSlug = await client.query("SELECT 1 FROM desa_wisata WHERE slug = $1", [slug]);
       if (checkSlug.rows.length === 0) break;
       slug = `${baseSlug}-${i}`;
       i++;
@@ -86,18 +68,7 @@ const addDesaWisata = async (req, res) => {
         alamat, pengelola, nomor_telepon, email, slug
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     `;
-    await client.query(insertDesaQuery, [
-      kd_desa,
-      provinsi,
-      kabupaten,
-      nama_desa,
-      nama_popular,
-      alamat,
-      pengelola,
-      nomor_telepon,
-      email,
-      slug,
-    ]);
+    await client.query(insertDesaQuery, [kd_desa, provinsi, kabupaten, nama_desa, nama_popular, alamat, pengelola, nomor_telepon, email, slug]);
 
     // Tambahkan ke tabel permintaan
     const kd_permintaan = `REQ-${nanoid(10)}`;
@@ -183,16 +154,7 @@ const getDesaWisataById = async (req, res) => {
 // Update desa wisata
 const updateDesaWisata = async (req, res) => {
   const { kd_desa } = req.params;
-  const {
-    provinsi,
-    kabupaten,
-    nama_desa,
-    nama_popular,
-    alamat,
-    pengelola,
-    nomor_telepon,
-    email,
-  } = req.body;
+  const { provinsi, kabupaten, nama_desa, nama_popular, alamat, pengelola, nomor_telepon, email } = req.body;
 
   // Validasi input menggunakan Joi
   const { error } = desaWisataSchema.validate({
@@ -237,10 +199,7 @@ const updateDesaWisata = async (req, res) => {
 
     // Pastikan slug tidak tabrakan dengan desa lain (selain desa ini)
     while (true) {
-      const slugCheck = await client.query(
-        "SELECT 1 FROM desa_wisata WHERE slug = $1 AND kd_desa != $2",
-        [slug, kd_desa]
-      );
+      const slugCheck = await client.query("SELECT 1 FROM desa_wisata WHERE slug = $1 AND kd_desa != $2", [slug, kd_desa]);
       if (slugCheck.rows.length === 0) break;
       slug = `${baseSlug}-${i}`;
       i++;
@@ -253,18 +212,7 @@ const updateDesaWisata = async (req, res) => {
       WHERE kd_desa = $10
     `;
 
-    await client.query(updateQuery, [
-      provinsi,
-      kabupaten,
-      nama_desa,
-      nama_popular,
-      alamat,
-      pengelola,
-      nomor_telepon,
-      email,
-      slug,
-      kd_desa,
-    ]);
+    await client.query(updateQuery, [provinsi, kabupaten, nama_desa, nama_popular, alamat, pengelola, nomor_telepon, email, slug, kd_desa]);
 
     await client.query("COMMIT");
     return res.status(200).json({
@@ -362,20 +310,28 @@ const getDesaByUserEmail = async (req, res) => {
 };
 
 const getAllDesaWisataWithDetails = async (req, res) => {
-  console.log("getAllDesaWisataWithDetails called");
   try {
-    const query = `
+    const byJenis = req.query.byJenis === "true";
+
+    let query = `
       SELECT 
         d.kd_desa,
         COALESCE(dd.gambar_cover, '') AS gambar_cover,
         COALESCE(d.provinsi, '') AS provinsi,
         COALESCE(d.kabupaten, '') AS kabupaten, 
         COALESCE(d.nama_popular, '') AS nama_popular,
-        d.slug
+        d.slug,
+        dd.jenis_desa
       FROM desa_wisata d
       LEFT JOIN deskripsi_desa dd ON d.kd_desa = dd.kd_desa
       WHERE dd.gambar_cover IS NOT NULL
     `;
+
+    if (byJenis) {
+      query += `
+          AND ARRAY_LENGTH(dd.jenis_desa, 1) > 0
+      `;
+    }
 
     const result = await pool.query(query);
 
